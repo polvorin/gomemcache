@@ -449,11 +449,26 @@ func (c *Client) touchFromAddr(addr net.Addr, keys []string, expiration int32) e
 	})
 }
 
+type ClusterKey struct {
+    ClusterKey string
+    HashKey string
+}
+
 // GetMulti is a batch version of Get. The returned map from keys to
 // items may have fewer elements than the input slice, due to memcache
 // cache misses. Each key must be at most 250 bytes in length.
 // If no error is returned, the returned map will also be non-nil.
 func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
+    clusteredKeys := make([]ClusterKey, len(keys))
+    for i,key := range keys {
+        clusteredKeys[i].ClusterKey = key
+        clusteredKeys[i].HashKey = key
+    }
+    return GetMultiClusterKey(clusteredKeys)
+}
+
+// Quick-and-dirty wat to specify cluster vs hash keys
+func (c *Client) GetMultiClusterKey(keys []ClusterKey) (map[string]*Item, error) {
 	var lk sync.Mutex
 	m := make(map[string]*Item)
 	addItemToMap := func(it *Item) {
@@ -464,14 +479,14 @@ func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
 
 	keyMap := make(map[net.Addr][]string)
 	for _, key := range keys {
-		if !legalKey(key) {
+		if !legalKey(key.HashKey) {
 			return nil, ErrMalformedKey
 		}
-		addr, err := c.selector.PickServer(key)
+		addr, err := c.selector.PickServer(key.ClusterKey)
 		if err != nil {
 			return nil, err
 		}
-		keyMap[addr] = append(keyMap[addr], key)
+		keyMap[addr] = append(keyMap[addr], key.HashKey)
 	}
 
 	ch := make(chan error, buffered)
