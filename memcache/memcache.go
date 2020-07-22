@@ -464,7 +464,7 @@ func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
         clusteredKeys[i].ClusterKey = key
         clusteredKeys[i].HashKey = key
     }
-    return GetMultiClusterKey(clusteredKeys)
+    return c.GetMultiClusterKey(clusteredKeys)
 }
 
 // Quick-and-dirty wat to specify cluster vs hash keys
